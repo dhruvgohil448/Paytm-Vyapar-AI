@@ -1,0 +1,132 @@
+import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { useDemo } from "../DemoContext";
+import { colors } from "../theme";
+import { Card, ErrorNote, PageTitle, PrimaryButton, ScreenScroll } from "../ui";
+
+export function OfferScreen() {
+  const demo = useDemo();
+  const [sku, setSku] = useState(demo.chosenSku ?? demo.campaign?.featured_sku ?? "Sugar");
+
+  useEffect(() => {
+    if (demo.chosenSku) {
+      setSku(demo.chosenSku);
+    }
+  }, [demo.chosenSku]);
+
+  const ready = demo.campaign?.featured_sku === sku;
+  const capMessage = demo.error?.includes("frequency cap")
+    ? "This shop can send two broadcasts in seven days. The third one is blocked."
+    : null;
+
+  return (
+    <ScreenScroll>
+      <PageTitle
+        title="WhatsApp offer"
+        detail="40% off the product you pick, on bills of ₹200 or more, and only when the customer pays in the Paytm app. Two sends every seven days."
+      />
+      <ErrorNote message={capMessage ?? demo.error} />
+      <View style={styles.chips}>
+        {demo.inventory.map((item) => {
+          const on = item.sku_name === sku;
+          return (
+            <Pressable key={item.inventory_id} onPress={() => setSku(item.sku_name)} style={[styles.chip, on && styles.chipOn]}>
+              <Text style={[styles.chipText, on && styles.chipTextOn]}>{item.sku_name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <PrimaryButton
+        label={ready ? "Message ready" : `Write offer for ${sku}`}
+        disabled={demo.busy || ready}
+        tone="navy"
+        onPress={() => void demo.previewCampaign(sku)}
+      />
+      {demo.campaign ? (
+        <View style={styles.chat}>
+          <Text style={styles.chatTitle}>Preview · {demo.campaign.featured_sku}</Text>
+          <View style={styles.bubble}>
+            <Text style={styles.bubbleText}>{demo.campaign.whatsapp_broadcast_message}</Text>
+            <Text style={styles.voucher}>Voucher {demo.campaign.redemption_passcode}</Text>
+          </View>
+        </View>
+      ) : (
+        <Card>
+          <Text style={styles.quiet}>The message appears here after you write it. Sending comes after that.</Text>
+        </Card>
+      )}
+      <PrimaryButton
+        label={demo.recipientCount ? `Sent to ${demo.recipientCount} neighbours` : "Send to neighbours"}
+        tone="whatsapp"
+        disabled={demo.busy || !ready}
+        onPress={() => void demo.sendOffer()}
+      />
+      <Text style={styles.quiet}>
+        {demo.recipientCount
+          ? "You can send one more time this week. A third send will be refused."
+          : "Opted-in neighbours only. The list has 120 people."}
+      </Text>
+    </ScreenScroll>
+  );
+}
+
+const styles = StyleSheet.create({
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  chipOn: {
+    backgroundColor: colors.whatsapp,
+    borderColor: colors.whatsapp,
+  },
+  chipText: {
+    color: colors.ink,
+    fontWeight: "700",
+  },
+  chipTextOn: {
+    color: "#FFFFFF",
+  },
+  chat: {
+    backgroundColor: colors.chat,
+    borderRadius: 18,
+    padding: 14,
+    gap: 8,
+  },
+  chatTitle: {
+    color: colors.whatsapp,
+    fontWeight: "800",
+  },
+  bubble: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+    backgroundColor: colors.bubble,
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    padding: 12,
+    gap: 8,
+  },
+  bubbleText: {
+    color: colors.ink,
+    fontSize: 16,
+    lineHeight: 23,
+  },
+  voucher: {
+    color: colors.whatsapp,
+    fontWeight: "800",
+  },
+  quiet: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+});
