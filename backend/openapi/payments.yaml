@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: Paytm Vyapar AI Payment Deep Link API
+  version: 1.0.0
+  description: >
+    HMAC-SHA256 Paytm UPI deep links. The signature covers
+    merchant_id|amount_paise|voucher|ts|nonce and expires after 120 seconds.
+    A nonce can be validated once. The discount applies only when
+    payment_source is PAYTM_CONSUMER_APP.
+servers:
+  - url: http://localhost:8000
+paths:
+  /v1/payments/deep-links:
+    post:
+      operationId: createDeepLink
+      summary: Sign a Paytm deep link for a voucher and amount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeepLinkRequest"
+      responses:
+        "200":
+          description: Signed link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeepLink"
+        "404":
+          description: Merchant or voucher was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/payments/validate:
+    post:
+      operationId: validatePayment
+      summary: Check the signature, expiry, source, and campaign rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidatePaymentRequest"
+      responses:
+        "200":
+          description: >
+            Validation result. Business-rule failures still return 200 with
+            is_discount_applied false.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscountValidation"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/soundbox/{device_id}/state:
+    get:
+      operationId: getSoundboxState
+      summary: Read the MQTT-shaped Soundbox snapshot cached in Redis
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Device snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SoundboxState"
+        "404":
+          description: Device was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    DeepLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, amount, voucher]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        amount:
+          $ref: "#/components/schemas/Money"
+        voucher:
+          type: string
+          minLength: 1
+          maxLength: 32
+    DeepLink:
+      type: object
+      additionalProperties: false
+      required: [url, expires_in_seconds, nonce, ts, sig, amount_paise]
+      properties:
+        url:
+          type: string
+        expires_in_seconds:
+          type: integer
+          example: 120
+        nonce:
+          type: string
+        ts:
+          type: integer
+          description: Unix seconds embedded in the signature.
+        sig:
+          type: string
+          description: Hex HMAC-SHA256.
+        amount_paise:
+          type: integer
+    ValidatePaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, bill_amount, voucher, payment_source, ts, nonce, sig]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        bill_amount:
+          $ref: "#/components/schemas/Money"
+        featured_sku_amount:
+          $ref: "#/components/schemas/Money"
+        voucher:
+          type: string
+          minLength: 1
+          maxLength: 32
+        payment_source:
+          type: string
+          enum: [PAYTM_CONSUMER_APP, PHONEPE, GPAY, BHIM]
+        ts:
+          type: integer
+        nonce:
+          type: string
+          minLength: 8
+          maxLength: 64
+        sig:
+          type: string
+          minLength: 64
+          maxLength: 64
+    DiscountValidation:
+      type: object
+      additionalProperties: false
+      required:
+        - is_discount_applied
+        - discount_amount
+        - payable_amount
+        - message
+        - reason
+        - announcement
+      properties:
+        is_discount_applied:
+          type: boolean
+        discount_amount:
+          $ref: "#/components/schemas/Money"
+        payable_amount:
+          $ref: "#/components/schemas/Money"
+        message:
+          type: string
+        reason:
+          type: string
+          enum:
+            - APPLIED
+            - WRONG_SOURCE
+            - BELOW_MINIMUM
+            - SIGNATURE_EXPIRED
+            - BAD_SIGNATURE
+            - REPLAYED
+            - UNKNOWN_VOUCHER
+            - INACTIVE_CAMPAIGN
+        announcement:
+          type: string
+          nullable: true
+    SoundboxState:
+      type: object
+      additionalProperties: false
+      required: [device_id, online, topic, last_announcement, updated_at]
+      properties:
+        device_id:
+          type: string
+        online:
+          type: boolean
+        topic:
+          type: string
+        last_announcement:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail:
+          type: string

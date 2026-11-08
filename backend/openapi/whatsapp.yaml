@@ -1,0 +1,358 @@
+openapi: 3.0.3
+info:
+  title: Paytm Vyapar AI WhatsApp Webhook API
+  version: 1.0.0
+  description: >
+    Inbound Meta-style WhatsApp webhooks and outbound sandbox broadcasts.
+    Campaigns are capped at two sends per merchant per seven days and only
+    reach customers who opted in.
+servers:
+  - url: http://localhost:8000
+paths:
+  /v1/webhooks/whatsapp:
+    post:
+      operationId: ingestWhatsAppWebhook
+      summary: Accept an inbound WhatsApp Cloud API notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WhatsAppWebhook"
+      responses:
+        "200":
+          description: Notification accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookAck"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/campaigns:
+    post:
+      operationId: createCampaign
+      summary: Generate a localized Paytm-gated campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignCreate"
+      responses:
+        "200":
+          description: Campaign stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "404":
+          description: Merchant was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/campaigns/{campaign_id}:
+    get:
+      operationId: getCampaign
+      summary: Read one campaign
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      responses:
+        "200":
+          description: Campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "404":
+          description: Campaign was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/campaigns/{campaign_id}/broadcast:
+    post:
+      operationId: broadcastCampaign
+      summary: Sandbox-broadcast a campaign to opted-in customers
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastRequest"
+      responses:
+        "200":
+          description: Broadcast recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BroadcastResult"
+        "404":
+          description: Campaign was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Merchant already sent two broadcasts in seven days
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/merchants/{merchant_id}/campaigns/latest:
+    get:
+      operationId: latestCampaign
+      summary: Most recently created campaign for a merchant
+      parameters:
+        - name: merchant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Latest campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "404":
+          description: Merchant or campaign was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  parameters:
+    CampaignId:
+      name: campaign_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    WhatsAppWebhook:
+      type: object
+      additionalProperties: false
+      required: [object, entry]
+      properties:
+        object:
+          type: string
+          enum: [whatsapp_business_account]
+        entry:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/WebhookEntry"
+    WebhookEntry:
+      type: object
+      additionalProperties: false
+      required: [id, changes]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        changes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/WebhookChange"
+    WebhookChange:
+      type: object
+      additionalProperties: false
+      required: [field, value]
+      properties:
+        field:
+          type: string
+          enum: [messages]
+        value:
+          $ref: "#/components/schemas/WebhookValue"
+    WebhookValue:
+      type: object
+      additionalProperties: false
+      required: [messaging_product, metadata, messages]
+      properties:
+        messaging_product:
+          type: string
+          enum: [whatsapp]
+        metadata:
+          $ref: "#/components/schemas/WebhookMetadata"
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/InboundMessage"
+    WebhookMetadata:
+      type: object
+      additionalProperties: false
+      required: [display_phone_number, phone_number_id]
+      properties:
+        display_phone_number:
+          type: string
+        phone_number_id:
+          type: string
+    InboundMessage:
+      type: object
+      additionalProperties: false
+      required: [from, id, timestamp, type]
+      properties:
+        from:
+          type: string
+        id:
+          type: string
+        timestamp:
+          type: string
+        type:
+          type: string
+          enum: [text, audio]
+        text:
+          $ref: "#/components/schemas/TextBody"
+        audio:
+          $ref: "#/components/schemas/AudioBody"
+    TextBody:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+    AudioBody:
+      type: object
+      additionalProperties: false
+      required: [id, mime_type]
+      properties:
+        id:
+          type: string
+        mime_type:
+          type: string
+    WebhookAck:
+      type: object
+      additionalProperties: false
+      required: [status, message_id, from_phone, kind, interpretation]
+      properties:
+        status:
+          type: string
+          enum: [accepted]
+        message_id:
+          type: string
+        from_phone:
+          type: string
+        kind:
+          type: string
+          enum: [text, audio]
+        interpretation:
+          type: string
+          enum: [stock_alert, note]
+    CampaignCreate:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, featured_sku, discount_percentage, minimum_order_value]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        featured_sku:
+          type: string
+          minLength: 1
+          maxLength: 100
+        discount_percentage:
+          $ref: "#/components/schemas/Money"
+        minimum_order_value:
+          $ref: "#/components/schemas/Money"
+    Campaign:
+      type: object
+      additionalProperties: false
+      required:
+        - campaign_id
+        - merchant_id
+        - featured_sku
+        - discount_percentage
+        - minimum_order_value
+        - whatsapp_broadcast_message
+        - redemption_passcode
+        - active_until
+        - total_redemptions
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        featured_sku:
+          type: string
+        discount_percentage:
+          $ref: "#/components/schemas/Money"
+        minimum_order_value:
+          $ref: "#/components/schemas/Money"
+        whatsapp_broadcast_message:
+          type: string
+        redemption_passcode:
+          type: string
+          maxLength: 32
+        active_until:
+          type: string
+          format: date-time
+        total_redemptions:
+          type: integer
+          minimum: 0
+    BroadcastRequest:
+      type: object
+      additionalProperties: false
+      required: [confirm]
+      properties:
+        confirm:
+          type: boolean
+          enum: [true]
+    BroadcastResult:
+      type: object
+      additionalProperties: false
+      required:
+        - broadcast_id
+        - campaign_id
+        - recipient_count
+        - whatsapp_broadcast_message
+        - pay_link
+        - sent_at
+      properties:
+        broadcast_id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        recipient_count:
+          type: integer
+          minimum: 0
+        whatsapp_broadcast_message:
+          type: string
+        pay_link:
+          type: string
+        sent_at:
+          type: string
+          format: date-time
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail:
+          type: string

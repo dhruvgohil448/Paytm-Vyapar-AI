@@ -1,0 +1,318 @@
+openapi: 3.0.3
+info:
+  title: Paytm Vyapar AI NBFC Repayment API
+  version: 1.0.0
+  description: >
+    Pre-approved supply-chain credit, escrow disbursement to a distributor, and
+    daily split-ticket repayment. Default split is 15 percent to the loan.
+servers:
+  - url: http://localhost:8000
+paths:
+  /v1/credit/offers:
+    post:
+      operationId: createCreditOffer
+      summary: Pre-approve a restock loan from GMV and the merchant limit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferRequest"
+      responses:
+        "200":
+          description: Offer, including the pending or active loan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditOffer"
+        "404":
+          description: Merchant or SKU was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/credit/loans/{loan_id}/accept:
+    post:
+      operationId: acceptLoan
+      summary: Disburse a pending loan to the distributor escrow account
+      parameters:
+        - $ref: "#/components/parameters/LoanId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptLoanRequest"
+      responses:
+        "200":
+          description: Loan disbursed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Disbursement"
+        "404":
+          description: Loan was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Loan is not pending, or the merchant does not match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/nbfc/repayments:
+    post:
+      operationId: postRepayment
+      summary: Split one settlement between the loan and the merchant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepaymentRequest"
+      responses:
+        "200":
+          description: Split posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepaymentResult"
+        "404":
+          description: Loan was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Loan is not disbursed, or the payment reference was reused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/loans/{loan_id}/ledger:
+    get:
+      operationId: getLedger
+      summary: Outstanding balance and split entries
+      parameters:
+        - $ref: "#/components/parameters/LoanId"
+      responses:
+        "200":
+          description: Ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ledger"
+        "404":
+          description: Loan was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  parameters:
+    LoanId:
+      name: loan_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    OfferRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, sku_name]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        sku_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    CreditOffer:
+      type: object
+      additionalProperties: false
+      required:
+        - loan_id
+        - merchant_id
+        - sku_name
+        - principal_amount
+        - interest_rate_annual
+        - interest_per_day
+        - distributor_id
+        - distributor_name
+        - split_deduction_percentage
+        - status
+        - outstanding_balance
+      properties:
+        loan_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        sku_name:
+          type: string
+        principal_amount:
+          $ref: "#/components/schemas/Money"
+        interest_rate_annual:
+          $ref: "#/components/schemas/Money"
+        interest_per_day:
+          $ref: "#/components/schemas/Money"
+        distributor_id:
+          type: string
+        distributor_name:
+          type: string
+        split_deduction_percentage:
+          $ref: "#/components/schemas/Money"
+        status:
+          $ref: "#/components/schemas/LoanStatus"
+        outstanding_balance:
+          $ref: "#/components/schemas/Money"
+    AcceptLoanRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_id]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+    Disbursement:
+      type: object
+      additionalProperties: false
+      required:
+        - loan_id
+        - status
+        - distributor_id
+        - distributor_name
+        - escrow_reference
+        - escrow_balance
+        - outstanding_balance
+        - disbursed_at
+      properties:
+        loan_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [DISBURSED]
+        distributor_id:
+          type: string
+        distributor_name:
+          type: string
+        escrow_reference:
+          type: string
+        escrow_balance:
+          $ref: "#/components/schemas/Money"
+        outstanding_balance:
+          $ref: "#/components/schemas/Money"
+        disbursed_at:
+          type: string
+          format: date-time
+    RepaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [loan_id, gross_amount, payment_reference]
+      properties:
+        loan_id:
+          type: string
+          format: uuid
+        gross_amount:
+          $ref: "#/components/schemas/Money"
+        payment_reference:
+          type: string
+          minLength: 1
+          maxLength: 64
+    RepaymentResult:
+      type: object
+      additionalProperties: false
+      required:
+        - entry_id
+        - loan_id
+        - gross_amount
+        - loan_deduction
+        - merchant_net
+        - outstanding_balance
+        - status
+        - payment_reference
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        loan_id:
+          type: string
+          format: uuid
+        gross_amount:
+          $ref: "#/components/schemas/Money"
+        loan_deduction:
+          $ref: "#/components/schemas/Money"
+        merchant_net:
+          $ref: "#/components/schemas/Money"
+        outstanding_balance:
+          $ref: "#/components/schemas/Money"
+        status:
+          $ref: "#/components/schemas/LoanStatus"
+        payment_reference:
+          type: string
+    LedgerEntry:
+      type: object
+      additionalProperties: false
+      required: [entry_id, gross_amount, loan_deduction, merchant_net, payment_reference, created_at]
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        gross_amount:
+          $ref: "#/components/schemas/Money"
+        loan_deduction:
+          $ref: "#/components/schemas/Money"
+        merchant_net:
+          $ref: "#/components/schemas/Money"
+        payment_reference:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Ledger:
+      type: object
+      additionalProperties: false
+      required: [loan_id, merchant_id, outstanding_balance, status, split_deduction_percentage, entries]
+      properties:
+        loan_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        outstanding_balance:
+          $ref: "#/components/schemas/Money"
+        status:
+          $ref: "#/components/schemas/LoanStatus"
+        split_deduction_percentage:
+          $ref: "#/components/schemas/Money"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+    LoanStatus:
+      type: string
+      enum: [PENDING, DISBURSED, REPAYING, SETTLED]
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail:
+          type: string

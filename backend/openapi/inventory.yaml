@@ -1,0 +1,161 @@
+openapi: 3.0.3
+info:
+  title: Paytm Vyapar AI Inventory Forecasting API
+  version: 1.0.0
+  description: >
+    Strict JSON contract for kirana stock-runway forecasts. Money and rates are
+    decimal strings. Unknown fields are rejected.
+servers:
+  - url: http://localhost:8000
+paths:
+  /v1/inventory/forecast:
+    post:
+      operationId: forecastInventory
+      summary: Forecast runway for one merchant SKU
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastRequest"
+      responses:
+        "200":
+          description: Forecast for the SKU
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastItem"
+        "404":
+          description: Merchant or SKU was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/merchants/{merchant_id}/inventory:
+    get:
+      operationId: listInventory
+      summary: Stock radar for every SKU the merchant carries
+      parameters:
+        - $ref: "#/components/parameters/MerchantId"
+      responses:
+        "200":
+          description: Inventory radar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryList"
+        "404":
+          description: Merchant was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  parameters:
+    MerchantId:
+      name: merchant_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ForecastRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, sku_name]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        sku_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    ReorderSuggestion:
+      type: object
+      additionalProperties: false
+      required: [sku_name, units, cost]
+      properties:
+        sku_name:
+          type: string
+        units:
+          $ref: "#/components/schemas/Money"
+        cost:
+          $ref: "#/components/schemas/Money"
+    ForecastItem:
+      type: object
+      additionalProperties: false
+      required:
+        - inventory_id
+        - merchant_id
+        - sku_name
+        - estimated_units_remaining
+        - burn_rate_units_per_day
+        - effective_burn_rate_units_per_day
+        - runway_hours
+        - alert
+        - projected_stockout_timestamp
+        - restock_cost_per_unit
+        - demand_factors
+        - reorder
+      properties:
+        inventory_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        sku_name:
+          type: string
+        estimated_units_remaining:
+          $ref: "#/components/schemas/Money"
+        burn_rate_units_per_day:
+          $ref: "#/components/schemas/Money"
+        effective_burn_rate_units_per_day:
+          $ref: "#/components/schemas/Money"
+        runway_hours:
+          $ref: "#/components/schemas/Money"
+        alert:
+          type: string
+          enum: [RED, YELLOW, GREEN]
+        projected_stockout_timestamp:
+          type: string
+          format: date-time
+        restock_cost_per_unit:
+          $ref: "#/components/schemas/Money"
+        demand_factors:
+          type: array
+          items:
+            type: string
+        reorder:
+          $ref: "#/components/schemas/ReorderSuggestion"
+    InventoryList:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, items]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForecastItem"
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+      description: Non-negative decimal with exactly two fractional digits.
+    Error:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail:
+          type: string
