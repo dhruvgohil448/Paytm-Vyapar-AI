@@ -1,38 +1,21 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { ShopMode } from "./navigation";
 import { colors } from "./theme";
 
-export function Shell({
-  mode,
-  onSwitch,
-  children,
-}: {
-  mode?: ShopMode;
-  onSwitch?: (mode: ShopMode) => void;
-  children: ReactNode;
-}) {
+export function Shell({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.brand}>Paytm for Business</Text>
-        <Text style={styles.shop}>Ramesh Kirana</Text>
-        <Text style={styles.place}>Dadar · 400028</Text>
-        {mode && onSwitch ? (
-          <View style={styles.switcher}>
-            {(["Merchant", "Customer"] as ShopMode[]).map((name) => {
-              const active = name === mode;
-              return (
-                <Pressable key={name} onPress={() => onSwitch(name)} style={[styles.segment, active && styles.segmentOn]}>
-                  <Text style={[styles.segmentLabel, active && styles.segmentLabelOn]}>{name}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
+        <View style={styles.mark}>
+          <Text style={styles.markText}>RK</Text>
+        </View>
+        <View style={styles.identity}>
+          <Text style={styles.shop}>Ramesh Kirana</Text>
+          <Text style={styles.place}>Dadar · 400028</Text>
+        </View>
       </View>
       <View style={styles.body}>{children}</View>
     </View>
@@ -46,50 +29,37 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.navy,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  brand: {
-    color: colors.paytm,
-    fontSize: 12,
+  mark: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.paytm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markText: {
+    color: colors.navy,
     fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    fontSize: 15,
+  },
+  identity: {
+    flex: 1,
   },
   shop: {
     color: "#FFFFFF",
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: "800",
-    marginTop: 2,
   },
   place: {
     color: "#D9E2EC",
-    fontSize: 14,
-    marginTop: 2,
-  },
-  switcher: {
-    flexDirection: "row",
-    backgroundColor: "#0B3A56",
-    borderRadius: 14,
-    padding: 4,
-    marginTop: 14,
-  },
-  segment: {
-    flex: 1,
-    borderRadius: 11,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  segmentOn: {
-    backgroundColor: "#FFFFFF",
-  },
-  segmentLabel: {
-    color: "#D9E2EC",
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  segmentLabelOn: {
-    color: colors.navy,
+    fontSize: 13,
+    marginTop: 1,
   },
   body: {
     flex: 1,

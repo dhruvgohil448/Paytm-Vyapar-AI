@@ -2,10 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import * as api from "./api";
 import { ApiError } from "./api";
-import { linePaise } from "./catalog";
-import { moneyFromPaise } from "./catalog";
 import { playSoundboxClip } from "./sound";
-import type { Campaign, CreditOffer, DiscountValidation, ForecastItem, Ledger, PaymentSource, SoundboxState } from "./types";
+import type { Campaign, CreditOffer, ForecastItem, Ledger, SoundboxState } from "./types";
 
 type DemoValue = {
   online: boolean;
@@ -19,9 +17,8 @@ type DemoValue = {
   campaign: Campaign | null;
   ledger: Ledger | null;
   soundbox: SoundboxState | null;
-  lastPayment: DiscountValidation | null;
   recipientCount: number | null;
-  cart: Record<string, number>;
+  payLink: string | null;
   connect: () => Promise<void>;
   refresh: () => Promise<void>;
   chooseSku: (sku: string) => void;
@@ -29,9 +26,6 @@ type DemoValue = {
   acceptLoan: () => Promise<void>;
   previewCampaign: (sku: string) => Promise<void>;
   sendOffer: () => Promise<void>;
-  setQty: (sku: string, qty: number) => void;
-  fillSampleBasket: () => void;
-  pay: (source: PaymentSource) => Promise<void>;
 };
 
 const DemoContext = createContext<DemoValue | null>(null);
@@ -52,10 +46,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [soundbox, setSoundbox] = useState<SoundboxState | null>(null);
-  const [lastPayment, setLastPayment] = useState<DiscountValidation | null>(null);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const [payLink, setPayLink] = useState<string | null>(null);
   const offerRef = useRef<CreditOffer | null>(null);
+  const heardAnnouncement = useRef<string | null>(null);
   offerRef.current = offer;
 
   const refresh = useCallback(async () => {
@@ -103,6 +97,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }
     const timer = setInterval(() => {
       api.fetchSoundbox().then(setSoundbox).catch(() => undefined);
+      const current = offerRef.current;
+      if (current && (current.status === "DISBURSED" || current.status === "REPAYING")) {
+        api.fetchLedger(current.loan_id).then(setLedger).catch(() => undefined);
+      }
     }, 4000);
     return () => clearInterval(timer);
   }, [online]);
@@ -170,63 +168,27 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         }
         const sent = await api.broadcastCampaign(campaign.campaign_id);
         setRecipientCount(sent.recipient_count);
+        setPayLink(sent.pay_link);
         await refresh();
       }),
     [campaign, refresh, run],
   );
 
-  const setQty = useCallback((sku: string, qty: number) => {
-    setCart((current) => {
-      const next = { ...current };
-      if (qty <= 0) {
-        delete next[sku];
-      } else {
-        next[sku] = Math.min(qty, 20);
-      }
-      return next;
-    });
-  }, []);
-
-  const fillSampleBasket = useCallback(() => {
-    setCart({ Sugar: 2, Biscuits: 5 });
-  }, []);
-
-  const pay = useCallback(
-    (source: PaymentSource) =>
-      run(async () => {
-        if (!campaign) {
-          throw new Error("Send the WhatsApp offer from the merchant screen first");
-        }
-        const billPaise = Object.entries(cart).reduce((sum, [sku, qty]) => sum + linePaise(sku, qty), 0);
-        const featuredPaise = linePaise(campaign.featured_sku, cart[campaign.featured_sku] ?? 0);
-        if (billPaise <= 0) {
-          throw new Error("Add something to the basket first");
-        }
-        const bill = moneyFromPaise(billPaise);
-        const featured = moneyFromPaise(featuredPaise);
-        const link = await api.createDeepLink(bill, campaign.redemption_passcode);
-        const result = await api.validatePayment({
-          billAmount: bill,
-          featuredSkuAmount: featured,
-          voucher: campaign.redemption_passcode,
-          paymentSource: source,
-          ts: link.ts,
-          nonce: link.nonce,
-          sig: link.sig,
-        });
-        const current = offerRef.current;
-        const loanOpen = current?.status === "DISBURSED" || current?.status === "REPAYING";
-        if (loanOpen && current && (result.reason === "APPLIED" || result.reason === "WRONG_SOURCE")) {
-          await api.postRepayment(current.loan_id, result.payable_amount);
-        }
-        if (result.is_discount_applied && Number(result.discount_amount) > 0) {
-          await playSoundboxClip();
-        }
-        setLastPayment(result);
-        await refresh();
-      }),
-    [campaign, cart, refresh, run],
-  );
+  useEffect(() => {
+    const text = soundbox?.last_announcement;
+    if (!text) {
+      return;
+    }
+    if (heardAnnouncement.current === null) {
+      heardAnnouncement.current = text;
+      return;
+    }
+    if (heardAnnouncement.current === text) {
+      return;
+    }
+    heardAnnouncement.current = text;
+    void playSoundboxClip();
+  }, [soundbox?.last_announcement]);
 
   const value = useMemo(
     () => ({
@@ -241,9 +203,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       campaign,
       ledger,
       soundbox,
-      lastPayment,
       recipientCount,
-      cart,
+      payLink,
       connect,
       refresh,
       chooseSku,
@@ -251,9 +212,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       acceptLoan,
       previewCampaign,
       sendOffer,
-      setQty,
-      fillSampleBasket,
-      pay,
     }),
     [
       online,
@@ -267,9 +225,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       campaign,
       ledger,
       soundbox,
-      lastPayment,
       recipientCount,
-      cart,
+      payLink,
       connect,
       refresh,
       chooseSku,
@@ -277,9 +234,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       acceptLoan,
       previewCampaign,
       sendOffer,
-      setQty,
-      fillSampleBasket,
-      pay,
     ],
   );
 
