@@ -106,3 +106,31 @@ export type SoundboxState = {
   last_announcement: string;
   updated_at: string;
 };
+
+export type Vendor = {
+  vendor_id: string;
+  name: string;
+  location: string;
+  price_per_unit: string;
+  unit: string;
+  min_order_qty: number;
+  delivery_days: number;
+  rating: number;
+  verified: boolean;
+  phone: string;
+};
+
+export type VendorQuote = {
+  sku: string;
+  vendors: Vendor[];
+};
+
+export type RestockOrder = {
+  order_id: string;
+  vendor_id: string;
+  sku: string;
+  quantity: number;
+  total_cost: string;
+  status: "PLACED" | "CONFIRMED" | "DISPATCHED" | "DELIVERED";
+  placed_at: string;
+};

@@ -9,6 +9,7 @@ import type { MerchantStackParamList } from "../navigation";
 import type { ForecastItem } from "../types";
 import { colors, rupee } from "../theme";
 import { AlertPill, Card, ErrorNote, PageTitle, PrimaryButton, RunwayBar, RunwayLabel, ScreenScroll, SecondaryButton } from "../ui";
+import { VendorQuotes } from "./VendorQuotes";
 
 type Props = NativeStackScreenProps<MerchantStackParamList, "Product">;
 
@@ -41,7 +42,7 @@ export function ProductScreen({ navigation, route }: Props) {
   return (
     <ScreenScroll>
       <Pressable onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>Back to stock</Text>
+        <Text style={styles.back}>Back</Text>
       </Pressable>
       <View style={styles.heading}>
         <PageTitle title={sku} detail={shelf ? `Sells at ${rupee(shelf.price)} per ${shelf.unit}` : undefined} />
@@ -61,6 +62,13 @@ export function ProductScreen({ navigation, route }: Props) {
             One week needs {item.reorder.units} units, about {rupee(item.reorder.cost)}.
           </Text>
         </Card>
+      ) : null}
+      {item ? (
+        <VendorQuotes
+          sku={sku}
+          unitCost={item.restock_cost_per_unit}
+          defaultUnits={Math.max(1, Math.round(Number(item.reorder.units)))}
+        />
       ) : null}
       <PrimaryButton
         label="Finance this restock"

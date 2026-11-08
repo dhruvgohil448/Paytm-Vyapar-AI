@@ -12,6 +12,7 @@ import { HomeScreen } from "./src/merchant/HomeScreen";
 import { OfferScreen } from "./src/merchant/OfferScreen";
 import { ProductScreen } from "./src/merchant/ProductScreen";
 import { StockScreen } from "./src/merchant/StockScreen";
+import { VendorScreen } from "./src/merchant/VendorScreen";
 import type { MerchantStackParamList, MerchantTabParamList } from "./src/navigation";
 import { Shell } from "./src/Shell";
 import { colors } from "./src/theme";
@@ -45,6 +46,7 @@ function MerchantTabScreen() {
     <MerchantTabs.Navigator screenOptions={tabOptions}>
       <MerchantTabs.Screen name="Home" component={HomeScreen} options={{ tabBarIcon: icon("home") }} />
       <MerchantTabs.Screen name="Stock" component={StockScreen} options={{ tabBarIcon: icon("cube") }} />
+      <MerchantTabs.Screen name="Vendors" component={VendorScreen} options={{ tabBarIcon: icon("storefront") }} />
       <MerchantTabs.Screen name="Credit" component={CreditScreen} options={{ tabBarIcon: icon("card") }} />
       <MerchantTabs.Screen name="Offer" component={OfferScreen} options={{ tabBarIcon: icon("megaphone") }} />
     </MerchantTabs.Navigator>

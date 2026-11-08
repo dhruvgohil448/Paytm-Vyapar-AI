@@ -4,6 +4,7 @@ import * as api from "./api";
 import { ApiError } from "./api";
 import { playSoundboxClip } from "./sound";
 import type { Campaign, CreditOffer, ForecastItem, Ledger, SoundboxState } from "./types";
+import { nextDeliveryDate, type RestockOrder } from "./vendors";
 
 type DemoValue = {
   online: boolean;
@@ -19,7 +20,11 @@ type DemoValue = {
   soundbox: SoundboxState | null;
   recipientCount: number | null;
   payLink: string | null;
+  watchSkus: string[];
+  restocks: RestockOrder[];
   connect: () => Promise<void>;
+  addWatchSku: (sku: string) => void;
+  placeRestock: (order: Omit<RestockOrder, "id">) => void;
   refresh: () => Promise<void>;
   chooseSku: (sku: string) => void;
   requestOffer: (sku: string) => Promise<void>;
@@ -48,6 +53,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [soundbox, setSoundbox] = useState<SoundboxState | null>(null);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [payLink, setPayLink] = useState<string | null>(null);
+  const [watchSkus, setWatchSkus] = useState<string[]>([]);
+  const [restocks, setRestocks] = useState<RestockOrder[]>([]);
   const offerRef = useRef<CreditOffer | null>(null);
   const heardAnnouncement = useRef<string | null>(null);
   offerRef.current = offer;
@@ -122,6 +129,17 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
   const chooseSku = useCallback((sku: string) => {
     setChosenSku(sku);
+  }, []);
+
+  const addWatchSku = useCallback((sku: string) => {
+    setWatchSkus((current) => (current.includes(sku) ? current : [...current, sku]));
+  }, []);
+
+  const placeRestock = useCallback((order: Omit<RestockOrder, "id">) => {
+    setRestocks((current) => [
+      { ...order, id: `${order.sku}-${Date.now()}`, deliveryDate: order.deliveryDate || nextDeliveryDate() },
+      ...current,
+    ]);
   }, []);
 
   const requestOffer = useCallback(
@@ -205,7 +223,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       soundbox,
       recipientCount,
       payLink,
+      watchSkus,
+      restocks,
       connect,
+      addWatchSku,
+      placeRestock,
       refresh,
       chooseSku,
       requestOffer,
@@ -227,7 +249,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       soundbox,
       recipientCount,
       payLink,
+      watchSkus,
+      restocks,
       connect,
+      addWatchSku,
+      placeRestock,
       refresh,
       chooseSku,
       requestOffer,

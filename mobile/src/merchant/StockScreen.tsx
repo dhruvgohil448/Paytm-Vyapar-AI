@@ -3,10 +3,11 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import { shelfFor } from "../catalog";
+import { moneyFromPaise, shelfFor } from "../catalog";
 import { useDemo } from "../DemoContext";
 import type { MerchantStackParamList, MerchantTabParamList } from "../navigation";
 import { colors, rupee } from "../theme";
+import { arrivalLabel, quotesFor } from "../vendors";
 import { AlertPill, PageTitle, RunwayBar, RunwayLabel, ScreenScroll } from "../ui";
 
 type Props = CompositeScreenProps<
@@ -18,9 +19,11 @@ export function StockScreen({ navigation }: Props) {
   const demo = useDemo();
   return (
     <ScreenScroll>
-      <PageTitle title="Stock" detail="Low means under 24 hours. Soon means under 48. OK means you can wait." />
+      <PageTitle title="Stock" detail="Open an item to compare 10 vendors and restock from the cheapest." />
       {demo.inventory.map((item) => {
         const shelf = shelfFor(item.sku_name);
+        const best = quotesFor(item.restock_cost_per_unit)[0];
+        const delivery = demo.restocks.find((order) => order.sku === item.sku_name);
         return (
           <Pressable key={item.inventory_id} style={styles.row} onPress={() => navigation.navigate("Product", { sku: item.sku_name })}>
             <View style={styles.top}>
@@ -35,6 +38,14 @@ export function StockScreen({ navigation }: Props) {
             </View>
             <RunwayBar hours={item.runway_hours} alert={item.alert} />
             <RunwayLabel hours={item.runway_hours} alert={item.alert} />
+            {delivery ? (
+              <View style={styles.delivery}>
+                <Text style={styles.deliveryText}>{arrivalLabel(delivery.deliveryDate)}</Text>
+                <Text style={styles.deliveryMeta}>{delivery.vendorName}</Text>
+              </View>
+            ) : best ? (
+              <Text style={styles.best}>Best {rupee(moneyFromPaise(best.unitPaise))} · {best.name}</Text>
+            ) : null}
           </Pressable>
         );
       })}
@@ -65,6 +76,27 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: colors.muted,
+    fontSize: 13,
+  },
+  best: {
+    color: colors.green,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  delivery: {
+    backgroundColor: colors.greenBg,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  deliveryText: {
+    color: colors.green,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  deliveryMeta: {
+    color: colors.ink,
     fontSize: 13,
   },
 });
