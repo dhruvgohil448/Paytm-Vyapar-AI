@@ -32,6 +32,12 @@ class ForecastRequest(APIModel):
     sku_name: str = Field(min_length=1, max_length=100)
 
 
+class RestockRequest(APIModel):
+    merchant_id: uuid.UUID
+    sku_name: str = Field(min_length=1, max_length=100)
+    units: str = Field(pattern=MONEY)
+
+
 class ReorderSuggestion(APIModel):
     sku_name: str
     units: str = Field(pattern=MONEY)
@@ -153,6 +159,19 @@ class BroadcastResult(APIModel):
 class OfferRequest(APIModel):
     merchant_id: uuid.UUID
     sku_name: str = Field(min_length=1, max_length=100)
+    purchase_amount: str | None = Field(default=None, pattern=MONEY)
+
+
+class CreditQuote(APIModel):
+    merchant_id: uuid.UUID
+    sku_name: str
+    sales_30d: str = Field(pattern=MONEY)
+    sales_limit: str = Field(pattern=MONEY)
+    asset_value: str = Field(pattern=MONEY)
+    purchase_amount: str = Field(pattern=MONEY)
+    preapproved_limit: str = Field(pattern=MONEY)
+    suggested_amount: str = Field(pattern=MONEY)
+    limiting_factor: Literal["purchase", "assets", "sales", "preapproved"]
 
 
 class CreditOffer(APIModel):

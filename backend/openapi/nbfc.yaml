@@ -8,10 +8,39 @@ info:
 servers:
   - url: http://localhost:8000
 paths:
+  /v1/credit/quote:
+    post:
+      operationId: quoteCredit
+      summary: Suggest a Paytm loan from sales, shelf assets, and this purchase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferRequest"
+      responses:
+        "200":
+          description: Suggested amount and the record behind it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditQuote"
+        "404":
+          description: Merchant or SKU was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /v1/credit/offers:
     post:
       operationId: createCreditOffer
-      summary: Pre-approve a restock loan from GMV and the merchant limit
+      summary: Open a restock loan at the Paytm suggestion for this purchase
       requestBody:
         required: true
         content:
@@ -138,6 +167,42 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+        purchase_amount:
+          $ref: "#/components/schemas/Money"
+    CreditQuote:
+      type: object
+      additionalProperties: false
+      required:
+        - merchant_id
+        - sku_name
+        - sales_30d
+        - sales_limit
+        - asset_value
+        - purchase_amount
+        - preapproved_limit
+        - suggested_amount
+        - limiting_factor
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        sku_name:
+          type: string
+        sales_30d:
+          $ref: "#/components/schemas/Money"
+        sales_limit:
+          $ref: "#/components/schemas/Money"
+        asset_value:
+          $ref: "#/components/schemas/Money"
+        purchase_amount:
+          $ref: "#/components/schemas/Money"
+        preapproved_limit:
+          $ref: "#/components/schemas/Money"
+        suggested_amount:
+          $ref: "#/components/schemas/Money"
+        limiting_factor:
+          type: string
+          enum: [purchase, assets, sales, preapproved]
     CreditOffer:
       type: object
       additionalProperties: false

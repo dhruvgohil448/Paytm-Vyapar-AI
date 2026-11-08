@@ -37,6 +37,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /v1/inventory/restock:
+    post:
+      operationId: restockInventory
+      summary: Add received units and forecast the SKU again
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestockRequest"
+      responses:
+        "200":
+          description: Updated forecast after the units land on the shelf
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastItem"
+        "400":
+          description: Restock quantity was not positive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Merchant or SKU was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Payload failed strict validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /v1/merchants/{merchant_id}/inventory:
     get:
       operationId: listInventory
@@ -78,6 +113,20 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+    RestockRequest:
+      type: object
+      additionalProperties: false
+      required: [merchant_id, sku_name, units]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        sku_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        units:
+          $ref: "#/components/schemas/Money"
     ReorderSuggestion:
       type: object
       additionalProperties: false

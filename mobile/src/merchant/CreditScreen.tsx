@@ -1,13 +1,24 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { fetchCreditQuote } from "../api";
+import { moneyFromPaise } from "../catalog";
 import { useDemo } from "../DemoContext";
 import { colors, rupee } from "../theme";
+import type { CreditQuote } from "../types";
 import { Card, ErrorNote, PageTitle, PrimaryButton, ScreenScroll } from "../ui";
+
+const FACTOR_LINE = {
+  purchase: "This purchase is smaller than what the sales and stock would allow.",
+  assets: "The stock already on the shelf is the limit.",
+  sales: "Recent sales are the limit.",
+  preapproved: "The Paytm cap for this shop is the limit.",
+};
 
 export function CreditScreen() {
   const demo = useDemo();
   const [sku, setSku] = useState(demo.chosenSku ?? "Sugar");
+  const [quote, setQuote] = useState<CreditQuote | null>(null);
 
   useEffect(() => {
     if (demo.chosenSku) {
@@ -15,15 +26,34 @@ export function CreditScreen() {
     }
   }, [demo.chosenSku]);
 
-  const selected = demo.inventory.find((item) => item.sku_name === sku);
-  const fullLimit = selected ? Number(selected.reorder.cost) >= 15000 : false;
+  const intent = demo.restockIntent?.sku === sku ? demo.restockIntent : null;
+  const purchase = intent ? moneyFromPaise(intent.totalPaise) : null;
   const loanOpen = demo.offer?.status === "DISBURSED" || demo.offer?.status === "REPAYING" || demo.offer?.status === "SETTLED";
+
+  useEffect(() => {
+    let alive = true;
+    setQuote(null);
+    fetchCreditQuote(sku, purchase)
+      .then((next) => {
+        if (alive) {
+          setQuote(next);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setQuote(null);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [purchase, sku]);
 
   return (
     <ScreenScroll>
       <PageTitle
         title="Restock credit"
-        detail="One loan at a time. The amount is the smaller of ₹15,000, 15% of recent sales, and one week of restock."
+        detail="Paytm reads your sales and the stock on the shelf, then suggests a loan for this restock."
       />
       <ErrorNote message={demo.error} />
       <View style={styles.chips}>
@@ -36,12 +66,29 @@ export function CreditScreen() {
           );
         })}
       </View>
-      {fullLimit ? <Text style={styles.hint}>{sku} is large enough to use the full ₹15,000 limit.</Text> : null}
-      <PrimaryButton
-        label={demo.busy ? "Checking…" : `See offer for ${sku}`}
-        disabled={demo.busy}
-        onPress={() => void demo.requestOffer(sku)}
-      />
+      {quote ? (
+        <Card>
+          <Text style={styles.kicker}>Paytm record</Text>
+          <Text style={styles.line}>Sales in 30 days {rupee(quote.sales_30d)}</Text>
+          <Text style={styles.line}>15% of those sales {rupee(quote.sales_limit)}</Text>
+          <Text style={styles.line}>Stock on the shelf {rupee(quote.asset_value)}</Text>
+          <Text style={styles.line}>
+            {intent
+              ? `This purchase from ${intent.vendorName} ${rupee(quote.purchase_amount)}`
+              : `One week of ${sku} ${rupee(quote.purchase_amount)}`}
+          </Text>
+          <Text style={styles.line}>Paytm cap {rupee(quote.preapproved_limit)}</Text>
+          <Text style={styles.amount}>{rupee(quote.suggested_amount)}</Text>
+          <Text style={styles.hint}>Paytm can lend this for the restock. {FACTOR_LINE[quote.limiting_factor]}</Text>
+        </Card>
+      ) : null}
+      {!demo.offer ? (
+        <PrimaryButton
+          label={demo.busy ? "Checking…" : quote ? `See Paytm offer of ${rupee(quote.suggested_amount)}` : "Reading your record…"}
+          disabled={demo.busy || !quote || quote.suggested_amount === "0.00"}
+          onPress={() => void demo.requestOffer(sku, purchase)}
+        />
+      ) : null}
       {demo.offer ? (
         <Card>
           <Text style={styles.kicker}>{demo.offer.status}</Text>
@@ -51,6 +98,11 @@ export function CreditScreen() {
             {demo.offer.split_deduction_percentage}% of each receipt repays the loan. Outstanding {rupee(demo.offer.outstanding_balance)}.
           </Text>
           <Text style={styles.line}>Choosing another product does not open a second loan or change this amount.</Text>
+          {quote && quote.suggested_amount !== demo.offer.principal_amount ? (
+            <Text style={styles.line}>
+              A fresh reading is {rupee(quote.suggested_amount)}. That amount is available after this balance reaches zero.
+            </Text>
+          ) : null}
           {loanOpen ? (
             <Text style={styles.ok}>This loan is open. A second product can be financed after the balance reaches zero.</Text>
           ) : (
@@ -59,7 +111,7 @@ export function CreditScreen() {
         </Card>
       ) : (
         <Card>
-          <Text style={styles.line}>Pick a product, then ask for the offer. Nothing is borrowed until you accept.</Text>
+          <Text style={styles.line}>Nothing is borrowed until you accept. Pay with Paytm on the restock draws this loan.</Text>
         </Card>
       )}
       {demo.ledger && demo.ledger.entries.length > 0 ? (

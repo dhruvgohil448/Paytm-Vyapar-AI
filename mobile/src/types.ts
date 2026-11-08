@@ -17,6 +17,20 @@ export type ForecastItem = {
   reorder: { sku_name: string; units: string; cost: string };
 };
 
+export type CreditLimitFactor = "purchase" | "assets" | "sales" | "preapproved";
+
+export type CreditQuote = {
+  merchant_id: string;
+  sku_name: string;
+  sales_30d: string;
+  sales_limit: string;
+  asset_value: string;
+  purchase_amount: string;
+  preapproved_limit: string;
+  suggested_amount: string;
+  limiting_factor: CreditLimitFactor;
+};
+
 export type CreditOffer = {
   loan_id: string;
   merchant_id: string;

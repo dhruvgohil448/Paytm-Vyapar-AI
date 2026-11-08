@@ -6,6 +6,13 @@ import { playSoundboxClip } from "./sound";
 import type { Campaign, CreditOffer, ForecastItem, Ledger, SoundboxState } from "./types";
 import { nextDeliveryDate, type RestockOrder } from "./vendors";
 
+export type RestockIntent = {
+  sku: string;
+  units: number;
+  totalPaise: number;
+  vendorName: string;
+};
+
 type DemoValue = {
   online: boolean;
   checking: boolean;
@@ -22,12 +29,15 @@ type DemoValue = {
   payLink: string | null;
   watchSkus: string[];
   restocks: RestockOrder[];
+  restockIntent: RestockIntent | null;
   connect: () => Promise<void>;
   addWatchSku: (sku: string) => void;
-  placeRestock: (order: Omit<RestockOrder, "id">) => void;
+  setRestockIntent: (intent: RestockIntent) => void;
+  placeRestock: (order: Omit<RestockOrder, "id">) => Promise<void>;
+  confirmPaytmRestock: (order: Omit<RestockOrder, "id">) => Promise<string | null>;
   refresh: () => Promise<void>;
   chooseSku: (sku: string) => void;
-  requestOffer: (sku: string) => Promise<void>;
+  requestOffer: (sku: string, purchase?: string | null) => Promise<void>;
   acceptLoan: () => Promise<void>;
   previewCampaign: (sku: string) => Promise<void>;
   sendOffer: () => Promise<void>;
@@ -55,6 +65,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [payLink, setPayLink] = useState<string | null>(null);
   const [watchSkus, setWatchSkus] = useState<string[]>([]);
   const [restocks, setRestocks] = useState<RestockOrder[]>([]);
+  const [restockIntent, setRestockIntentState] = useState<RestockIntent | null>(null);
   const offerRef = useRef<CreditOffer | null>(null);
   const heardAnnouncement = useRef<string | null>(null);
   offerRef.current = offer;
@@ -135,17 +146,82 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setWatchSkus((current) => (current.includes(sku) ? current : [...current, sku]));
   }, []);
 
-  const placeRestock = useCallback((order: Omit<RestockOrder, "id">) => {
-    setRestocks((current) => [
-      { ...order, id: `${order.sku}-${Date.now()}`, deliveryDate: order.deliveryDate || nextDeliveryDate() },
-      ...current,
-    ]);
+  const setRestockIntent = useCallback((intent: RestockIntent) => {
+    setRestockIntentState((current) => {
+      if (
+        current &&
+        current.sku === intent.sku &&
+        current.units === intent.units &&
+        current.totalPaise === intent.totalPaise &&
+        current.vendorName === intent.vendorName
+      ) {
+        return current;
+      }
+      return intent;
+    });
   }, []);
 
+  const placeRestock = useCallback(async (order: Omit<RestockOrder, "id">) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await api.restockSku(order.sku, `${Math.max(1, Math.round(order.units)).toFixed(2)}`);
+      setInventory((current) => {
+        const exists = current.some((item) => item.sku_name === updated.sku_name);
+        const next = exists
+          ? current.map((item) => (item.sku_name === updated.sku_name ? updated : item))
+          : [...current, updated];
+        return byRunway(next);
+      });
+      setRestocks((current) => [
+        { ...order, id: `${order.sku}-${Date.now()}`, deliveryDate: order.deliveryDate || nextDeliveryDate() },
+        ...current,
+      ]);
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 0) {
+        setOnline(false);
+      }
+      setError(err instanceof Error ? err.message : "Could not update stock");
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const confirmPaytmRestock = useCallback(
+    async (order: Omit<RestockOrder, "id">) => {
+      let funded: string | null = null;
+      if (offer && offer.status === "PENDING") {
+        setBusy(true);
+        setError(null);
+        try {
+          await api.acceptLoan(offer.loan_id);
+          const updated = await api.fetchOffer(offer.sku_name);
+          setOffer(updated);
+          setLedger(await api.fetchLedger(updated.loan_id));
+          funded = updated.principal_amount;
+        } catch (err: unknown) {
+          if (err instanceof ApiError && err.status === 0) {
+            setOnline(false);
+          }
+          setError(err instanceof Error ? err.message : "Could not draw the Paytm loan");
+          throw err;
+        } finally {
+          setBusy(false);
+        }
+      } else if (offer && offer.status !== "SETTLED") {
+        funded = offer.principal_amount;
+      }
+      await placeRestock(order);
+      return funded;
+    },
+    [offer, placeRestock],
+  );
+
   const requestOffer = useCallback(
-    (sku: string) =>
+    (sku: string, purchase?: string | null) =>
       run(async () => {
-        const credit = await api.fetchOffer(sku);
+        const credit = await api.fetchOffer(sku, purchase);
         setOffer(credit);
         setChosenSku(sku);
         setLedger(await api.fetchLedger(credit.loan_id));
@@ -225,9 +301,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       payLink,
       watchSkus,
       restocks,
+      restockIntent,
       connect,
       addWatchSku,
+      setRestockIntent,
       placeRestock,
+      confirmPaytmRestock,
       refresh,
       chooseSku,
       requestOffer,
@@ -251,9 +330,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       payLink,
       watchSkus,
       restocks,
+      restockIntent,
       connect,
       addWatchSku,
+      setRestockIntent,
       placeRestock,
+      confirmPaytmRestock,
       refresh,
       chooseSku,
       requestOffer,

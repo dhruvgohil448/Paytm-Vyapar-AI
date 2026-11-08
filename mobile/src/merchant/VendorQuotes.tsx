@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { moneyFromPaise } from "../catalog";
+import { moneyFromPaise, shelfFor } from "../catalog";
 import { useDemo } from "../DemoContext";
 import { colors, rupee } from "../theme";
 import { arrivalLabel, nextDeliveryDate, quotesFor } from "../vendors";
@@ -25,31 +25,79 @@ export function VendorQuotes({
   const [note, setNote] = useState<string | null>(null);
   const selected = quotes.find((quote) => quote.id === vendorId) ?? quotes[0];
   const placed = demo.restocks.find((order) => order.sku === sku);
-  const units = Math.max(1, defaultUnits);
+  const unitLabel = shelfFor(sku)?.unit ?? "units";
+  const [units, setUnits] = useState(() => Math.max(1, defaultUnits));
+  const [funded, setFunded] = useState<string | null>(null);
+  const [paidWith, setPaidWith] = useState<string | null>(null);
+
+  const total = selected ? selected.unitPaise * units : 0;
+
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+    demo.setRestockIntent({
+      sku,
+      units,
+      totalPaise: total,
+      vendorName: selected.name,
+    });
+  }, [demo, selected, sku, total, units]);
 
   if (!selected) {
     return null;
   }
 
-  const total = selected.unitPaise * units;
+  function changeUnits(next: number) {
+    if (!Number.isFinite(next)) {
+      setUnits(1);
+      return;
+    }
+    setUnits(Math.min(9999, Math.max(1, Math.round(next))));
+  }
 
-  function confirmWithPaytm() {
-    demo.placeRestock({
+  function orderDraft() {
+    return {
       sku,
       vendorName: selected.name,
       units,
       unitPaise: selected.unitPaise,
       totalPaise: total,
       deliveryDate: nextDeliveryDate(),
-    });
-    setNote(null);
-    setStage("done");
+    };
+  }
+
+  async function confirmOnDelivery() {
+    try {
+      await demo.placeRestock(orderDraft());
+      setFunded(null);
+      setPaidWith("Pay on delivery");
+      setNote(null);
+      setStage("done");
+    } catch {
+      setNote(null);
+    }
+  }
+
+  async function confirmWithPaytm() {
+    try {
+      const covered = await demo.confirmPaytmRestock(orderDraft());
+      setFunded(covered);
+      setPaidWith("Paytm");
+      setNote(null);
+      setStage("done");
+    } catch {
+      setNote(null);
+    }
   }
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.heading}>10 vendors selling {sku}</Text>
-      <Text style={styles.detail}>Pick a seller, then restock. The lowest price is marked Best.</Text>
+      <Text style={styles.detail}>Set the quantity, pick a seller, then restock. The lowest price is marked Best.</Text>
+      {stage !== "done" ? (
+        <QuantityField units={units} unitLabel={unitLabel} unitPrice={rupee(moneyFromPaise(selected.unitPaise))} onChange={changeUnits} />
+      ) : null}
       {quotes.map((quote) => {
         const on = quote.id === selected.id;
         return (
@@ -82,10 +130,19 @@ export function VendorQuotes({
         <View style={styles.checkout}>
           <Text style={styles.kicker}>Order total</Text>
           <Text style={styles.grand}>{rupee(moneyFromPaise(total))}</Text>
-          <Text style={styles.meta}>One week of {sku} from {selected.name}</Text>
+          <Text style={styles.meta}>
+            {units} {unitLabel} of {sku} from {selected.name}
+          </Text>
           <Text style={styles.kicker}>Payment</Text>
-          <SecondaryButton label="Pay on delivery" onPress={() => setNote("Pay with Paytm to confirm this order.")} />
-          <PrimaryButton label="Pay with Paytm" onPress={confirmWithPaytm} />
+          <SecondaryButton label="Pay on delivery" onPress={confirmOnDelivery} disabled={demo.busy} />
+          <PrimaryButton label="Pay with Paytm" onPress={confirmWithPaytm} disabled={demo.busy} />
+          {demo.offer && demo.offer.status !== "SETTLED" ? (
+            <Text style={styles.meta}>
+              Paytm loan covers {rupee(demo.offer.principal_amount)} of this order.
+            </Text>
+          ) : (
+            <Text style={styles.meta}>Finance this restock first if you want Paytm to fund the purchase.</Text>
+          )}
           <SecondaryButton label="Card payment" onPress={() => setNote("Pay with Paytm to confirm this order.")} />
           {note ? <Text style={styles.note}>{note}</Text> : null}
         </View>
@@ -95,10 +152,53 @@ export function VendorQuotes({
         <View style={styles.confirmed}>
           <Text style={styles.kicker}>Order confirmed</Text>
           <Text style={styles.grand}>{rupee(moneyFromPaise(placed.totalPaise))}</Text>
-          <Text style={styles.meta}>Paid with Paytm · {placed.vendorName}</Text>
+          <Text style={styles.meta}>
+            {paidWith ?? "Paytm"} · {placed.units} {unitLabel} · {placed.vendorName}
+          </Text>
+          {funded ? <Text style={styles.arrival}>Paytm funded {rupee(funded)} of this restock.</Text> : null}
           <Text style={styles.arrival}>{arrivalLabel(placed.deliveryDate)}</Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function QuantityField({
+  units,
+  unitLabel,
+  unitPrice,
+  onChange,
+}: {
+  units: number;
+  unitLabel: string;
+  unitPrice: string;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <View style={styles.qtyBlock}>
+      <Text style={styles.kicker}>Quantity</Text>
+      <View style={styles.qtyRow}>
+        <Pressable style={styles.step} onPress={() => onChange(units - 1)} accessibilityLabel="Decrease quantity">
+          <Text style={styles.stepLabel}>−</Text>
+        </Pressable>
+        <TextInput
+          value={String(units)}
+          onChangeText={(text) => {
+            const digits = text.replace(/\D/g, "");
+            onChange(digits ? Number(digits) : 1);
+          }}
+          keyboardType="number-pad"
+          style={styles.qtyInput}
+          selectTextOnFocus
+          maxLength={4}
+        />
+        <Pressable style={styles.step} onPress={() => onChange(units + 1)} accessibilityLabel="Increase quantity">
+          <Text style={styles.stepLabel}>+</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.meta}>
+        {unitPrice} per {unitLabel}
+      </Text>
     </View>
   );
 }
@@ -164,6 +264,41 @@ const styles = StyleSheet.create({
     color: colors.navy,
     fontSize: 15,
     fontWeight: "800",
+  },
+  qtyBlock: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 16,
+    gap: 8,
+  },
+  qtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  step: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.bg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepLabel: {
+    color: colors.ink,
+    fontSize: 24,
+    fontWeight: "700",
+    lineHeight: 28,
+  },
+  qtyInput: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.bg,
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
   },
   checkout: {
     backgroundColor: colors.card,

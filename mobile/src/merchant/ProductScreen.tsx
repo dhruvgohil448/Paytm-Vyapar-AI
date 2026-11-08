@@ -25,9 +25,15 @@ export function ProductScreen({ navigation, route }: Props) {
     let alive = true;
     forecastSku(sku)
       .then((forecast) => {
-        if (alive) {
-          setItem(forecast);
+        if (!alive) {
+          return;
         }
+        setItem((current) => {
+          if (current && Number(current.estimated_units_remaining) > Number(forecast.estimated_units_remaining)) {
+            return current;
+          }
+          return forecast;
+        });
       })
       .catch((err: unknown) => {
         if (alive) {
@@ -39,6 +45,13 @@ export function ProductScreen({ navigation, route }: Props) {
     };
   }, [sku]);
 
+  useEffect(() => {
+    const next = demo.inventory.find((row) => row.sku_name === sku);
+    if (next) {
+      setItem(next);
+    }
+  }, [demo.inventory, sku]);
+
   return (
     <ScreenScroll>
       <Pressable onPress={() => navigation.goBack()}>
@@ -48,7 +61,7 @@ export function ProductScreen({ navigation, route }: Props) {
         <PageTitle title={sku} detail={shelf ? `Sells at ${rupee(shelf.price)} per ${shelf.unit}` : undefined} />
         {item ? <AlertPill alert={item.alert} /> : null}
       </View>
-      <ErrorNote message={failed} />
+      <ErrorNote message={failed ?? demo.error} />
       {!item ? <ActivityIndicator color={colors.paytm} /> : null}
       {item ? (
         <Card>

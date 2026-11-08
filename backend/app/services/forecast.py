@@ -81,6 +81,25 @@ def _project(item: InventoryItem, now: datetime, *, persist: bool) -> ForecastIt
     )
 
 
+def receive_stock(db: Session, merchant_id, sku_name: str, units: str, now: datetime | None = None) -> ForecastItem:
+    """Add delivered units and forecast again so the runway and alert move with the shelf."""
+    merchant = db.get(Merchant, merchant_id)
+    if merchant is None:
+        raise DomainError(404, "Merchant not found")
+    item = (
+        db.query(InventoryItem)
+        .filter(InventoryItem.merchant_id == merchant_id, InventoryItem.sku_name == sku_name)
+        .one_or_none()
+    )
+    if item is None:
+        raise DomainError(404, "SKU not found")
+    added = D(units)
+    if added <= 0:
+        raise DomainError(400, "Restock units must be greater than zero")
+    item.estimated_units_remaining = D(item.estimated_units_remaining + added)
+    return _project(item, now or datetime.now(timezone.utc), persist=True)
+
+
 def forecast_sku(db: Session, merchant_id, sku_name: str, now: datetime | None = None) -> ForecastItem:
     merchant = db.get(Merchant, merchant_id)
     if merchant is None:

@@ -13,6 +13,7 @@ import { OfferScreen } from "./src/merchant/OfferScreen";
 import { ProductScreen } from "./src/merchant/ProductScreen";
 import { StockScreen } from "./src/merchant/StockScreen";
 import { VendorScreen } from "./src/merchant/VendorScreen";
+import { VendorProductsScreen } from "./src/merchant/VendorProductsScreen";
 import type { MerchantStackParamList, MerchantTabParamList } from "./src/navigation";
 import { Shell } from "./src/Shell";
 import { colors } from "./src/theme";
@@ -37,6 +38,7 @@ function MerchantNavigator() {
     <MerchantStack.Navigator screenOptions={{ headerShown: false }}>
       <MerchantStack.Screen name="MerchantTabs" component={MerchantTabScreen} />
       <MerchantStack.Screen name="Product" component={ProductScreen} />
+      <MerchantStack.Screen name="VendorProducts" component={VendorProductsScreen} />
     </MerchantStack.Navigator>
   );
 }

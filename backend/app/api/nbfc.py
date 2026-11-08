@@ -7,23 +7,33 @@ from app.errors import DomainError
 from app.schemas import (
     AcceptLoanRequest,
     CreditOffer,
+    CreditQuote,
     Disbursement,
     Ledger,
     OfferRequest,
     RepaymentRequest,
     RepaymentResult,
 )
-from app.services.credit import accept_loan, create_offer
+from app.services.credit import accept_loan, create_offer, quote_credit
 from app.services.settlement import get_ledger, post_repayment
 
 router = APIRouter(tags=["nbfc"])
+
+
+@router.post("/v1/credit/quote", response_model=CreditQuote)
+def post_quote(body: OfferRequest) -> CreditQuote:
+    try:
+        with session_scope() as db:
+            return quote_credit(db, body.merchant_id, body.sku_name, body.purchase_amount)
+    except DomainError as exc:
+        raise_domain(exc)
 
 
 @router.post("/v1/credit/offers", response_model=CreditOffer)
 def post_offer(body: OfferRequest) -> CreditOffer:
     try:
         with session_scope() as db:
-            return create_offer(db, body.merchant_id, body.sku_name)
+            return create_offer(db, body.merchant_id, body.sku_name, body.purchase_amount)
     except DomainError as exc:
         raise_domain(exc)
 

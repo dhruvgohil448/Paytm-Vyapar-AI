@@ -41,7 +41,9 @@ export function StockScreen({ navigation }: Props) {
             {delivery ? (
               <View style={styles.delivery}>
                 <Text style={styles.deliveryText}>{arrivalLabel(delivery.deliveryDate)}</Text>
-                <Text style={styles.deliveryMeta}>{delivery.vendorName}</Text>
+                <Text style={styles.deliveryMeta}>
+                  {delivery.units} {shelf?.unit ?? "units"} · {delivery.vendorName}
+                </Text>
               </View>
             ) : best ? (
               <Text style={styles.best}>Best {rupee(moneyFromPaise(best.unitPaise))} · {best.name}</Text>

@@ -1,113 +1,148 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import { useDemo } from "../DemoContext";
 import type { MerchantStackParamList, MerchantTabParamList } from "../navigation";
 import { colors } from "../theme";
-import { arrivalLabel } from "../vendors";
-import { PageTitle, PrimaryButton, ScreenScroll } from "../ui";
+import { WHOLESALERS } from "../vendors";
+import { PageTitle, ScreenScroll } from "../ui";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MerchantTabParamList, "Vendors">,
   NativeStackScreenProps<MerchantStackParamList>
 >;
 
-export function VendorScreen({ navigation }: Props) {
-  const demo = useDemo();
-  const [picking, setPicking] = useState(false);
-  const available = demo.inventory.filter((item) => !demo.watchSkus.includes(item.sku_name));
+/** Gradient colours paired with each vendor id for the placeholder banner. */
+const VENDOR_GRADIENTS: Record<string, [string, string]> = {
+  dadar:        ["#F97316", "#EA580C"],
+  masjid:       ["#8B5CF6", "#7C3AED"],
+  crawford:     ["#10B981", "#059669"],
+  lalbaug:      ["#F59E0B", "#D97706"],
+  parel:        ["#3B82F6", "#2563EB"],
+  grant:        ["#EC4899", "#DB2777"],
+  byculla:      ["#06B6D4", "#0891B2"],
+  worli:        ["#84CC16", "#65A30D"],
+  elphinstone:  ["#EF4444", "#DC2626"],
+  sewri:        ["#A78BFA", "#7C3AED"],
+};
 
+function VendorBanner({
+  id,
+  name,
+  image,
+}: {
+  id: string;
+  name: string;
+  image?: ReturnType<typeof require>;
+}) {
+  if (image) {
+    return <Image source={image} style={styles.bannerImage} resizeMode="cover" fadeDuration={0} />;
+  }
+  const [bg] = VENDOR_GRADIENTS[id] ?? ["#627D98", "#486581"];
+  const initials = name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("");
+  return (
+    <View style={[styles.bannerPlaceholder, { backgroundColor: bg }]}>
+      <Text style={styles.bannerInitials}>{initials}</Text>
+    </View>
+  );
+}
+
+export function VendorScreen({ navigation }: Props) {
   return (
     <ScreenScroll>
-      <PageTitle title="Vendors" detail="Add something you already sell. Open it to compare 10 wholesalers and restock." />
-      <PrimaryButton label={picking ? "Hide shop items" : "Add an item from the shop"} onPress={() => setPicking((value) => !value)} />
-      {picking ? (
-        <View style={styles.chips}>
-          {available.length === 0 ? <Text style={styles.quiet}>Every shop item is already on this list.</Text> : null}
-          {available.map((item) => (
-            <Pressable
-              key={item.inventory_id}
-              style={styles.chip}
-              onPress={() => {
-                demo.addWatchSku(item.sku_name);
-                setPicking(false);
-              }}
-            >
-              <Text style={styles.chipText}>{item.sku_name}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-      {demo.watchSkus.length === 0 ? (
-        <Text style={styles.quiet}>No item yet. Add sugar, oil, or any other product already in stock.</Text>
-      ) : null}
-      {demo.watchSkus.map((sku) => {
-        const latest = demo.restocks.find((order) => order.sku === sku);
-        return (
-          <Pressable key={sku} style={styles.row} onPress={() => navigation.navigate("Product", { sku })}>
-            <View style={styles.copy}>
-              <Text style={styles.name}>{sku}</Text>
-              <Text style={styles.meta}>
-                {latest ? `${arrivalLabel(latest.deliveryDate)} · ${latest.vendorName}` : "Compare 10 sellers"}
+      <PageTitle
+        title="Vendors"
+        detail="Pick a wholesaler to browse their products and place a restock order."
+      />
+      {WHOLESALERS.map((vendor) => (
+        <Pressable
+          key={vendor.id}
+          style={styles.card}
+          onPress={() => navigation.navigate("VendorProducts", { vendorId: vendor.id })}
+        >
+          <VendorBanner id={vendor.id} name={vendor.name} image={vendor.image} />
+          <View style={styles.cardBody}>
+            <View style={styles.cardCopy}>
+              <Text style={styles.vendorName}>{vendor.name}</Text>
+              <Text style={styles.vendorArea}>{vendor.area}</Text>
+            </View>
+            <View style={styles.priceBadge}>
+              <Text style={styles.priceLabel}>
+                {vendor.factor < 1
+                  ? `${Math.round((1 - vendor.factor) * 100)}% cheaper`
+                  : vendor.factor === 1
+                  ? "Market rate"
+                  : `${Math.round((vendor.factor - 1) * 100)}% costlier`}
               </Text>
             </View>
-            <Text style={styles.open}>Vendors</Text>
-          </Pressable>
-        );
-      })}
+          </View>
+        </Pressable>
+      ))}
     </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  card: {
     backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: "#0B1F33",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  chipText: {
-    color: colors.ink,
-    fontWeight: "700",
+  bannerImage: {
+    width: "100%",
+    height: 140,
   },
-  quiet: {
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 21,
+  bannerPlaceholder: {
+    width: "100%",
+    height: 140,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  row: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 14,
+  bannerInitials: {
+    color: "#FFFFFF",
+    fontSize: 48,
+    fontWeight: "900",
+    opacity: 0.6,
+  },
+  cardBody: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
   },
-  copy: {
+  cardCopy: {
     flex: 1,
     gap: 2,
   },
-  name: {
+  vendorName: {
     color: colors.ink,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
-  meta: {
+  vendorArea: {
     color: colors.muted,
     fontSize: 13,
   },
-  open: {
-    color: colors.paytmDark,
+  priceBadge: {
+    backgroundColor: colors.bg,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  priceLabel: {
+    color: colors.navy,
+    fontSize: 11,
     fontWeight: "800",
   },
 });

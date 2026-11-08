@@ -2,15 +2,17 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.adapters.nbfc_sandbox import credit_escrow, escrow_reference
 from app.demo_ids import DISTRIBUTOR_ID
 from app.errors import DomainError
-from app.models import Distributor, Loan, Merchant
+from app.models import Distributor, InventoryItem, Loan, Merchant, SettlementEntry
 from app.money import D, money
-from app.schemas import CreditOffer, Disbursement
+from app.schemas import CreditOffer, CreditQuote, Disbursement
 from app.services.forecast import week_restock_cost
+from app.shelf import SHELF_PRICE
 
 ANNUAL_RATE = Decimal("58.40")
 DEFAULT_SPLIT = Decimal("15.00")
@@ -38,7 +40,79 @@ def _offer_from_loan(loan: Loan, distributor: Distributor, sku_name: str) -> Cre
     )
 
 
-def create_offer(db: Session, merchant_id: uuid.UUID, sku_name: str) -> CreditOffer:
+def _sales_30d(db: Session, merchant: Merchant) -> Decimal:
+    collected = (
+        db.query(func.coalesce(func.sum(SettlementEntry.gross_amount), 0))
+        .filter(SettlementEntry.merchant_id == merchant.merchant_id)
+        .scalar()
+    )
+    return D(D(merchant.recent_gmv_30d) + D(collected))
+
+
+def _shelf_assets(db: Session, merchant_id: uuid.UUID) -> Decimal:
+    items = db.query(InventoryItem).filter(InventoryItem.merchant_id == merchant_id).all()
+    total = Decimal("0")
+    for item in items:
+        price = SHELF_PRICE.get(item.sku_name, D(item.restock_cost_per_unit))
+        total += D(item.estimated_units_remaining) * D(price)
+    return D(total)
+
+
+def quote_credit(
+    db: Session,
+    merchant_id: uuid.UUID,
+    sku_name: str,
+    purchase_amount: str | None = None,
+) -> CreditQuote:
+    """Size a Paytm restock loan from sales, shelf assets, and this purchase."""
+    merchant = db.get(Merchant, merchant_id)
+    if merchant is None:
+        raise DomainError(404, "Merchant not found")
+    item = (
+        db.query(InventoryItem)
+        .filter(InventoryItem.merchant_id == merchant_id, InventoryItem.sku_name == sku_name)
+        .one_or_none()
+    )
+    if item is None:
+        raise DomainError(404, "SKU not found")
+
+    if purchase_amount is None:
+        purchase = week_restock_cost(db, merchant_id, sku_name)
+    else:
+        purchase = D(purchase_amount)
+        if purchase <= 0:
+            raise DomainError(422, "Purchase amount must be greater than zero")
+
+    sales = _sales_30d(db, merchant)
+    sales_limit = D(sales * GMV_FRACTION)
+    assets = _shelf_assets(db, merchant_id)
+    preapproved = D(merchant.max_preapproved_limit)
+    limits = (
+        ("purchase", purchase),
+        ("assets", assets),
+        ("sales", sales_limit),
+        ("preapproved", preapproved),
+    )
+    factor, suggested = min(limits, key=lambda pair: pair[1])
+    return CreditQuote(
+        merchant_id=merchant.merchant_id,
+        sku_name=sku_name,
+        sales_30d=money(sales),
+        sales_limit=money(sales_limit),
+        asset_value=money(assets),
+        purchase_amount=money(purchase),
+        preapproved_limit=money(preapproved),
+        suggested_amount=money(suggested),
+        limiting_factor=factor,  # type: ignore[arg-type]
+    )
+
+
+def create_offer(
+    db: Session,
+    merchant_id: uuid.UUID,
+    sku_name: str,
+    purchase_amount: str | None = None,
+) -> CreditOffer:
     merchant = db.get(Merchant, merchant_id)
     if merchant is None:
         raise DomainError(404, "Merchant not found")
@@ -57,9 +131,8 @@ def create_offer(db: Session, merchant_id: uuid.UUID, sku_name: str) -> CreditOf
     if distributor is None:
         raise DomainError(404, "Distributor not found")
 
-    restock = week_restock_cost(db, merchant_id, sku_name)
-    gmv_cap = D(D(merchant.recent_gmv_30d) * GMV_FRACTION)
-    principal = min(D(merchant.max_preapproved_limit), gmv_cap, restock)
+    assessed = quote_credit(db, merchant_id, sku_name, purchase_amount)
+    principal = D(assessed.suggested_amount)
     if principal <= 0:
         raise DomainError(422, "No pre-approved limit is available")
     now = datetime.now(timezone.utc)

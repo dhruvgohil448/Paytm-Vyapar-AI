@@ -11,4 +11,5 @@ export type MerchantTabParamList = {
 export type MerchantStackParamList = {
   MerchantTabs: NavigatorScreenParams<MerchantTabParamList> | undefined;
   Product: { sku: string };
+  VendorProducts: { vendorId: string };
 };

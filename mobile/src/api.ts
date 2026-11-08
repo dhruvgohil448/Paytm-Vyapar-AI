@@ -3,6 +3,7 @@ import type {
   BroadcastResult,
   Campaign,
   CreditOffer,
+  CreditQuote,
   DeepLink,
   DiscountValidation,
   Disbursement,
@@ -73,10 +74,32 @@ export function forecastSku(sku: string): Promise<ForecastItem> {
   });
 }
 
-export function fetchOffer(sku: string): Promise<CreditOffer> {
+export function restockSku(sku: string, units: string): Promise<ForecastItem> {
+  return request("/v1/inventory/restock", {
+    method: "POST",
+    body: JSON.stringify({ merchant_id: RAMESH_MERCHANT_ID, sku_name: sku, units }),
+  });
+}
+
+export function fetchCreditQuote(sku: string, purchase?: string | null): Promise<CreditQuote> {
+  return request("/v1/credit/quote", {
+    method: "POST",
+    body: JSON.stringify({
+      merchant_id: RAMESH_MERCHANT_ID,
+      sku_name: sku,
+      ...(purchase ? { purchase_amount: purchase } : {}),
+    }),
+  });
+}
+
+export function fetchOffer(sku: string, purchase?: string | null): Promise<CreditOffer> {
   return request("/v1/credit/offers", {
     method: "POST",
-    body: JSON.stringify({ merchant_id: RAMESH_MERCHANT_ID, sku_name: sku }),
+    body: JSON.stringify({
+      merchant_id: RAMESH_MERCHANT_ID,
+      sku_name: sku,
+      ...(purchase ? { purchase_amount: purchase } : {}),
+    }),
   });
 }
 

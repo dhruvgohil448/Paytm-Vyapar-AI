@@ -74,12 +74,82 @@ def test_sugar_forecast_is_red(client):
     assert {item["alert"] for item in items} == {"RED", "YELLOW", "GREEN"}
 
 
+def test_restock_adds_units_and_clears_the_red_alert(client):
+    before = client.post(
+        "/v1/inventory/forecast",
+        json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU},
+    )
+    assert before.status_code == 200, before.text
+    starting = Decimal(before.json()["estimated_units_remaining"])
+    added = Decimal("200.00")
+    response = client.post(
+        "/v1/inventory/restock",
+        json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU, "units": "200.00"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert Decimal(body["estimated_units_remaining"]) == starting + added
+    assert body["alert"] == "GREEN"
+    assert Decimal(body["runway_hours"]) >= Decimal("48")
+    radar = client.get(f"/v1/merchants/{MERCHANT}/inventory")
+    sugar = next(item for item in radar.json()["items"] if item["sku_name"] == SUGAR_SKU)
+    assert sugar["alert"] == "GREEN"
+    assert Decimal(sugar["estimated_units_remaining"]) == starting + added
+
+
+def _daily_interest(principal: str) -> str:
+    value = (Decimal(principal) * Decimal("58.40") / Decimal("100") / Decimal("365")).quantize(Decimal("0.01"))
+    return f"{value:.2f}"
+
+
+def test_credit_quote_uses_sales_assets_and_purchase(client):
+    forecast = client.post(
+        "/v1/inventory/forecast",
+        json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU},
+    )
+    assert forecast.status_code == 200, forecast.text
+    quote = client.post("/v1/credit/quote", json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU})
+    assert quote.status_code == 200, quote.text
+    body = quote.json()
+    assert body["sales_30d"] == "120000.00"
+    assert body["sales_limit"] == "18000.00"
+    assert body["preapproved_limit"] == "15000.00"
+    assert body["purchase_amount"] == forecast.json()["reorder"]["cost"]
+    assert Decimal(body["asset_value"]) > 0
+    suggested = min(
+        Decimal(body["purchase_amount"]),
+        Decimal(body["asset_value"]),
+        Decimal(body["sales_limit"]),
+        Decimal(body["preapproved_limit"]),
+    )
+    assert Decimal(body["suggested_amount"]) == suggested
+    small = client.post(
+        "/v1/credit/quote",
+        json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU, "purchase_amount": "400.00"},
+    )
+    assert small.status_code == 200, small.text
+    assert small.json()["suggested_amount"] == "400.00"
+    assert small.json()["limiting_factor"] == "purchase"
+    offer = client.post(
+        "/v1/credit/offers",
+        json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU, "purchase_amount": "400.00"},
+    )
+    assert offer.status_code == 200, offer.text
+    assert offer.json()["principal_amount"] == "400.00"
+    again = client.post(
+        "/v1/credit/offers",
+        json={"merchant_id": MERCHANT, "sku_name": "Tea", "purchase_amount": "9000.00"},
+    )
+    assert again.json()["principal_amount"] == "400.00"
+    assert again.json()["loan_id"] == offer.json()["loan_id"]
+
+
 def test_accept_loan_disburses_to_distributor(client):
     offer = client.post("/v1/credit/offers", json={"merchant_id": MERCHANT, "sku_name": SUGAR_SKU})
     assert offer.status_code == 200, offer.text
     offered = offer.json()
-    assert offered["principal_amount"] == "15000.00"
-    assert offered["interest_per_day"] == "24.00"
+    assert Decimal(offered["principal_amount"]) > 0
+    assert offered["interest_per_day"] == _daily_interest(offered["principal_amount"])
     assert offered["status"] == "PENDING"
     accepted = client.post(
         f"/v1/credit/loans/{offered['loan_id']}/accept",
@@ -91,8 +161,8 @@ def test_accept_loan_disburses_to_distributor(client):
     assert body["distributor_id"] == "DIST-DADAR-SUPER"
     assert body["distributor_name"] == "Dadar Super Stockist"
     assert body["escrow_reference"].startswith("ESC-")
-    assert Decimal(body["escrow_balance"]) >= Decimal("15000.00")
-    assert body["outstanding_balance"] == "15000.00"
+    assert Decimal(body["escrow_balance"]) >= Decimal(offered["principal_amount"])
+    assert body["outstanding_balance"] == offered["principal_amount"]
 
 
 def test_split_settlement_is_fifteen_eighty_five(client):
@@ -109,7 +179,7 @@ def test_split_settlement_is_fifteen_eighty_five(client):
     body = posted.json()
     assert body["loan_deduction"] == "24.00"
     assert body["merchant_net"] == "136.00"
-    assert body["outstanding_balance"] == "14976.00"
+    assert body["outstanding_balance"] == f"{(Decimal(offer['principal_amount']) - Decimal('24.00')):.2f}"
     assert body["status"] == "REPAYING"
     ledger = client.get(f"/v1/loans/{offer['loan_id']}/ledger")
     assert ledger.status_code == 200
