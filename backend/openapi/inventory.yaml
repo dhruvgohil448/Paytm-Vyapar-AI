@@ -72,6 +72,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /v1/merchants/{merchant_id}:
+    get:
+      operationId: getMerchant
+      summary: Shop profile for one merchant
+      parameters:
+        - $ref: "#/components/parameters/MerchantId"
+      responses:
+        "200":
+          description: Merchant shop profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantProfile"
+        "404":
+          description: Merchant was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /v1/merchants/{merchant_id}/inventory:
     get:
       operationId: listInventory
@@ -185,6 +204,50 @@ components:
             type: string
         reorder:
           $ref: "#/components/schemas/ReorderSuggestion"
+    MerchantProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - merchant_id
+        - business_name
+        - phone_number
+        - pincode
+        - slug
+        - soundbox_device_id
+        - credit_tier
+        - max_preapproved_limit
+        - recent_gmv_30d
+        - customer_count
+        - sku_count
+        - created_at
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        business_name:
+          type: string
+        phone_number:
+          type: string
+        pincode:
+          type: string
+        slug:
+          type: string
+        soundbox_device_id:
+          type: string
+          nullable: true
+        credit_tier:
+          type: string
+        max_preapproved_limit:
+          $ref: "#/components/schemas/Money"
+        recent_gmv_30d:
+          $ref: "#/components/schemas/Money"
+        customer_count:
+          type: integer
+        sku_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
     InventoryList:
       type: object
       additionalProperties: false

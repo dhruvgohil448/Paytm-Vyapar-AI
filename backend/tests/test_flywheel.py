@@ -263,6 +263,24 @@ def test_third_weekly_broadcast_is_rejected(client):
     assert third.status_code == 429
 
 
+def test_merchant_profile_lists_the_shop(client):
+    response = client.get(f"/v1/merchants/{MERCHANT}")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["business_name"] == "Ramesh Kirana"
+    assert body["phone_number"] == "919876543210"
+    assert body["pincode"] == "400028"
+    assert body["slug"] == "ramesh-kirana"
+    assert body["soundbox_device_id"] == RAMESH_DEVICE_ID
+    assert body["credit_tier"] == "STANDARD"
+    assert body["max_preapproved_limit"] == "15000.00"
+    assert body["recent_gmv_30d"] == "120000.00"
+    assert body["customer_count"] == 120
+    assert body["sku_count"] >= 1
+    missing = client.get("/v1/merchants/99999999-9999-4999-8999-999999999999")
+    assert missing.status_code == 404
+
+
 def test_whatsapp_webhook_accepts_stock_note(client):
     response = client.post(
         "/v1/webhooks/whatsapp",

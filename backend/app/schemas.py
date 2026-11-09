@@ -285,3 +285,18 @@ class SoundboxState(APIModel):
     topic: str
     last_announcement: str
     updated_at: datetime
+
+
+class MerchantProfile(APIModel):
+    merchant_id: uuid.UUID
+    business_name: str
+    phone_number: str
+    pincode: str
+    slug: str
+    soundbox_device_id: str | None
+    credit_tier: str
+    max_preapproved_limit: str = Field(pattern=MONEY)
+    recent_gmv_30d: str = Field(pattern=MONEY)
+    customer_count: int
+    sku_count: int
+    created_at: datetime

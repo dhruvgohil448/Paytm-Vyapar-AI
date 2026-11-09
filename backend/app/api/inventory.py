@@ -4,8 +4,9 @@ from fastapi import APIRouter
 
 from app.api.deps import raise_domain, session_scope
 from app.errors import DomainError
-from app.schemas import ForecastItem, ForecastRequest, InventoryList, RestockRequest
+from app.schemas import ForecastItem, ForecastRequest, InventoryList, MerchantProfile, RestockRequest
 from app.services.forecast import forecast_sku, list_inventory, receive_stock
+from app.services.merchants import merchant_profile
 
 router = APIRouter(tags=["inventory"])
 
@@ -24,6 +25,15 @@ def post_restock(body: RestockRequest) -> ForecastItem:
     try:
         with session_scope() as db:
             return receive_stock(db, body.merchant_id, body.sku_name, body.units)
+    except DomainError as exc:
+        raise_domain(exc)
+
+
+@router.get("/v1/merchants/{merchant_id}", response_model=MerchantProfile)
+def get_merchant(merchant_id: UUID) -> MerchantProfile:
+    try:
+        with session_scope() as db:
+            return merchant_profile(db, merchant_id)
     except DomainError as exc:
         raise_domain(exc)
 
