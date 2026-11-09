@@ -14,7 +14,7 @@ export const SHELF: ShelfItem[] = [
   { sku: "Mustard oil",  price: "160.00", unit: "L",    emoji: "🫙", image: require("../assets/products/mustard_oil.png") },
   { sku: "Tea",          price: "40.00",  unit: "pack", emoji: "🍵", image: require("../assets/products/tea.png") },
   { sku: "Milk powder",  price: "120.00", unit: "pack", emoji: "🥛", image: require("../assets/products/milk_powder.png") },
-  { sku: "Turmeric",     price: "30.00",  unit: "pack", emoji: "🌿" },
+  { sku: "Turmeric",     price: "30.00",  unit: "pack", emoji: "🌿", image: require("../assets/products/turmeric.png") },
   { sku: "Toor dal",     price: "90.00",  unit: "kg",   emoji: "🫘", image: require("../assets/products/toor_dal.png") },
   { sku: "Rice",         price: "55.00",  unit: "kg",   emoji: "🍚", image: require("../assets/products/rice.png") },
   { sku: "Maggi",        price: "15.00",  unit: "pack", emoji: "🍜", image: require("../assets/products/maggi.png") },
