@@ -139,6 +139,21 @@ export type VendorQuote = {
   vendors: Vendor[];
 };
 
+export type MerchantProfile = {
+  merchant_id: string;
+  business_name: string;
+  phone_number: string;
+  pincode: string;
+  slug: string;
+  soundbox_device_id: string | null;
+  credit_tier: string;
+  max_preapproved_limit: string;
+  recent_gmv_30d: string;
+  customer_count: number;
+  sku_count: number;
+  created_at: string;
+};
+
 export type RestockOrder = {
   order_id: string;
   vendor_id: string;

@@ -9,6 +9,7 @@ import type {
   Disbursement,
   ForecastItem,
   Ledger,
+  MerchantProfile,
   PaymentSource,
   SoundboxState,
 } from "./types";
@@ -61,6 +62,10 @@ export async function probeHealth(): Promise<void> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function fetchMerchant(): Promise<MerchantProfile> {
+  return request(`/v1/merchants/${RAMESH_MERCHANT_ID}`);
 }
 
 export function fetchInventory(): Promise<{ items: ForecastItem[] }> {
