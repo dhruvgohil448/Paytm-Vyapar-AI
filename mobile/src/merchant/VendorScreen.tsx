@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -6,7 +7,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MerchantStackParamList, MerchantTabParamList } from "../navigation";
 import { colors } from "../theme";
 import { WHOLESALERS } from "../vendors";
-import { PageTitle, ScreenScroll } from "../ui";
+import { PageTitle, SearchField } from "../ui";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MerchantTabParamList, "Vendors">,
@@ -53,13 +54,26 @@ function VendorBanner({
 }
 
 export function VendorScreen({ navigation }: Props) {
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+  const vendors = useMemo(
+    () =>
+      WHOLESALERS.filter(
+        (vendor) => vendor.name.toLowerCase().includes(needle) || vendor.area.toLowerCase().includes(needle),
+      ),
+    [needle],
+  );
   return (
-    <ScreenScroll>
-      <PageTitle
-        title="Vendors"
-        detail="Pick a wholesaler to browse their products and place a restock order."
-      />
-      {WHOLESALERS.map((vendor) => (
+    <View style={styles.screen}>
+      <View style={styles.sticky}>
+        <PageTitle title="Vendors" />
+        <SearchField value={query} onChangeText={setQuery} placeholder="Search vendors" />
+      </View>
+      <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      {vendors.length === 0 ? (
+        <Text style={styles.empty}>{needle ? `No vendor matches ${query.trim()}.` : "No vendors yet."}</Text>
+      ) : null}
+      {vendors.map((vendor) => (
         <Pressable
           key={vendor.id}
           style={styles.card}
@@ -83,15 +97,38 @@ export function VendorScreen({ navigation }: Props) {
           </View>
         </Pressable>
       ))}
-    </ScreenScroll>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  sticky: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    gap: 10,
+    backgroundColor: colors.bg,
+  },
+  list: {
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+    gap: 12,
+  },
+  empty: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 21,
+  },
   card: {
     backgroundColor: colors.card,
     borderRadius: 18,
     overflow: "hidden",
+    borderWidth: 1.5,
+    borderColor: "#C5D0DC",
     shadowColor: "#0B1F33",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,

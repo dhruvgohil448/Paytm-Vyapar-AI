@@ -11,16 +11,16 @@ export type Wholesaler = {
 
 /** Demo wholesalers. Prices are a factor of the shop's restock cost from the API. */
 export const WHOLESALERS: Wholesaler[] = [
-  { id: "dadar",        name: "Dadar Super Stockist",  area: "Dadar",           factor: 0.86 },
-  { id: "masjid",      name: "Masjid Bunder Grains",  area: "Masjid Bunder",   factor: 0.91 },
-  { id: "crawford",    name: "Crawford Wholesale",     area: "Crawford Market", factor: 0.94 },
-  { id: "lalbaug",     name: "Lalbaug Oil Depot",      area: "Lalbaug",         factor: 0.97 },
-  { id: "parel",       name: "Parel Kirana Mandi",     area: "Parel",           factor: 1    },
-  { id: "grant",       name: "Grant Road Traders",     area: "Grant Road",      factor: 1.03 },
-  { id: "byculla",     name: "Byculla Supply",         area: "Byculla",         factor: 1.06 },
-  { id: "worli",       name: "Worli Dry Goods",        area: "Worli",           factor: 1.09 },
-  { id: "elphinstone", name: "Elphinstone Depot",      area: "Elphinstone",     factor: 1.12 },
-  { id: "sewri",       name: "Sewri Staples",          area: "Sewri",           factor: 1.16 },
+  { id: "dadar",        name: "Dadar Super Stockist",  area: "Dadar",           factor: 0.86, image: require("../assets/shops/dadar.jpg") },
+  { id: "masjid",      name: "Masjid Bunder Grains",  area: "Masjid Bunder",   factor: 0.91, image: require("../assets/shops/masjid.jpg") },
+  { id: "crawford",    name: "Crawford Wholesale",     area: "Crawford Market", factor: 0.94, image: require("../assets/shops/crawford.jpg") },
+  { id: "lalbaug",     name: "Lalbaug Oil Depot",      area: "Lalbaug",         factor: 0.97, image: require("../assets/shops/lalbaug.jpg") },
+  { id: "parel",       name: "Parel Kirana Mandi",     area: "Parel",           factor: 1,    image: require("../assets/shops/parel.jpg") },
+  { id: "grant",       name: "Grant Road Traders",     area: "Grant Road",      factor: 1.03, image: require("../assets/shops/grant.jpg") },
+  { id: "byculla",     name: "Byculla Supply",         area: "Byculla",         factor: 1.06, image: require("../assets/shops/byculla.jpg") },
+  { id: "worli",       name: "Worli Dry Goods",        area: "Worli",           factor: 1.09, image: require("../assets/shops/worli.jpg") },
+  { id: "elphinstone", name: "Elphinstone Depot",      area: "Elphinstone",     factor: 1.12, image: require("../assets/shops/elphinstone.jpg") },
+  { id: "sewri",       name: "Sewri Staples",          area: "Sewri",           factor: 1.16, image: require("../assets/shops/sewri.jpg") },
 ];
 
 export type VendorQuote = {
