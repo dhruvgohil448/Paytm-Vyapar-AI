@@ -74,7 +74,7 @@ export default function App() {
     <SafeAreaProvider>
       <DemoProvider>
         <NavigationContainer ref={navigationRef}>
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
           <Shop />
         </NavigationContainer>
       </DemoProvider>
