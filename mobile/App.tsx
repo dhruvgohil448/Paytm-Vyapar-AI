@@ -14,7 +14,8 @@ import { ProductScreen } from "./src/merchant/ProductScreen";
 import { StockScreen } from "./src/merchant/StockScreen";
 import { VendorScreen } from "./src/merchant/VendorScreen";
 import { VendorProductsScreen } from "./src/merchant/VendorProductsScreen";
-import type { MerchantStackParamList, MerchantTabParamList } from "./src/navigation";
+import { ProfileScreen } from "./src/merchant/ProfileScreen";
+import { navigationRef, type MerchantStackParamList, type MerchantTabParamList } from "./src/navigation";
 import { Shell } from "./src/Shell";
 import { colors } from "./src/theme";
 
@@ -39,6 +40,7 @@ function MerchantNavigator() {
       <MerchantStack.Screen name="MerchantTabs" component={MerchantTabScreen} />
       <MerchantStack.Screen name="Product" component={ProductScreen} />
       <MerchantStack.Screen name="VendorProducts" component={VendorProductsScreen} />
+      <MerchantStack.Screen name="Profile" component={ProfileScreen} />
     </MerchantStack.Navigator>
   );
 }
@@ -71,7 +73,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <DemoProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <StatusBar style="light" />
           <Shop />
         </NavigationContainer>
