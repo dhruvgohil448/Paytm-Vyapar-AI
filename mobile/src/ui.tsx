@@ -1,10 +1,56 @@
+import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { alertColors, cardShadow, colors, hoursLabel } from "./theme";
 
 export function ScreenScroll({ children }: { children: ReactNode }) {
   return <ScrollView contentContainerStyle={styles.scroll}>{children}</ScrollView>;
+}
+
+export function SearchField({
+  value,
+  onChangeText,
+  placeholder,
+}: {
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <View style={styles.search}>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.muted}
+        autoCorrect={false}
+        autoCapitalize="none"
+        clearButtonMode="while-editing"
+        returnKeyType="search"
+        style={styles.searchInput}
+      />
+      {value.length > 0 ? (
+        <Pressable onPress={() => onChangeText("")} hitSlop={8} accessibilityLabel="Clear search">
+          <Text style={styles.searchClear}>Clear</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+export function BackButton({ onPress, onDark = false }: { onPress: () => void; onDark?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      onPress={onPress}
+      hitSlop={8}
+      style={[styles.backBtn, onDark ? styles.backBtnDark : styles.backBtnLight]}
+    >
+      <Ionicons name="chevron-back" size={22} color={onDark ? "#FFFFFF" : colors.navy} />
+    </Pressable>
+  );
 }
 
 export function PageTitle({ title, detail }: { title: string; detail?: string }) {
@@ -100,6 +146,47 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
     gap: 12,
+  },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 14,
+    minHeight: 48,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: "600",
+    paddingVertical: 10,
+  },
+  searchClear: {
+    color: colors.paytmDark,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backBtnLight: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    ...cardShadow,
+  },
+  backBtnDark: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
   },
   titleBlock: {
     gap: 4,
