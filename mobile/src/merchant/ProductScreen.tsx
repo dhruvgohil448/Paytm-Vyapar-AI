@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { forecastSku } from "../api";
@@ -8,7 +8,7 @@ import { useDemo } from "../DemoContext";
 import type { MerchantStackParamList } from "../navigation";
 import type { ForecastItem } from "../types";
 import { colors, rupee } from "../theme";
-import { AlertPill, Card, ErrorNote, PageTitle, PrimaryButton, RunwayBar, RunwayLabel, ScreenScroll, SecondaryButton } from "../ui";
+import { AlertPill, BackButton, Card, ErrorNote, PageTitle, PrimaryButton, RunwayBar, RunwayLabel, ScreenScroll, SecondaryButton } from "../ui";
 import { VendorQuotes } from "./VendorQuotes";
 
 type Props = NativeStackScreenProps<MerchantStackParamList, "Product">;
@@ -54,9 +54,7 @@ export function ProductScreen({ navigation, route }: Props) {
 
   return (
     <ScreenScroll>
-      <Pressable onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>Back</Text>
-      </Pressable>
+      <BackButton onPress={() => navigation.goBack()} />
       <View style={styles.heading}>
         <PageTitle title={sku} detail={shelf ? `Sells at ${rupee(shelf.price)} per ${shelf.unit}` : undefined} />
         {item ? <AlertPill alert={item.alert} /> : null}
@@ -102,11 +100,6 @@ export function ProductScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  back: {
-    color: colors.paytmDark,
-    fontWeight: "800",
-    fontSize: 15,
-  },
   heading: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -5,6 +5,7 @@ import { moneyFromPaise } from "../catalog";
 import { colors, rupee } from "../theme";
 import type { MerchantStackParamList } from "../navigation";
 import { WHOLESALERS, pricedItems } from "../vendors";
+import { BackButton } from "../ui";
 
 type Props = NativeStackScreenProps<MerchantStackParamList, "VendorProducts">;
 
@@ -24,9 +25,7 @@ export function VendorProductsScreen({ navigation, route }: Props) {
     <ScrollView contentContainerStyle={styles.scroll}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backLabel}>← Vendors</Text>
-        </Pressable>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>{vendor.name}</Text>
         <Text style={styles.subtitle}>{vendor.area} · All products</Text>
       </View>
@@ -74,14 +73,6 @@ const styles = StyleSheet.create({
   header: {
     gap: 4,
     marginBottom: 4,
-  },
-  backBtn: {
-    marginBottom: 6,
-  },
-  backLabel: {
-    color: colors.paytmDark,
-    fontWeight: "800",
-    fontSize: 15,
   },
   title: {
     color: colors.ink,
